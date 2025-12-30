@@ -1,0 +1,5 @@
+{
+  "name": "ComissãoCheck - Auditoria de Comissões",
+  "description": "Ferramenta de comparação de planilhas de promotoras contra base mestre para validação de comissões e identificação de pendências.",
+  "requestFramePermissions": []
+}
