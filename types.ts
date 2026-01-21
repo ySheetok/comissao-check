@@ -1,3 +1,4 @@
+
 export enum PromoterType {
   PORT = 'PORT',
   CREDFORYOU = 'CREDFORYOU',
@@ -56,4 +57,10 @@ export interface UploadedFile {
   type: 'MASTER' | 'PROMOTER';
   data: any[]; // Raw JSON from xlsx
   promoterType?: PromoterType; // Only for promoter files
+  
+  // New fields for advanced Excel handling
+  workbook?: any; // Store the raw XLSX Workbook object
+  sheetNames?: string[];
+  selectedSheet?: string;
+  headerRowIndex?: number; // 0 = Row 1, 1 = Row 2, etc.
 }

@@ -3,17 +3,29 @@ import { format } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
 import { MatchResult, ProcessedRow, PromoterType } from '../types';
 
+// Legacy wrapper for simple use cases
 export const readExcelFile = async (file: File): Promise<any[]> => {
+  const { data } = await getWorkbookAndData(file);
+  return data;
+};
+
+// Advanced function to get the Workbook and perform initial detection
+export const getWorkbookAndData = async (file: File): Promise<{ workbook: XLSX.WorkBook, sheetNames: string[], data: any[] }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        resolve(jsonData);
+        const sheetNames = workbook.SheetNames;
+        
+        if (sheetNames.length === 0) throw new Error("Arquivo vazio");
+
+        // Default to first sheet
+        const firstSheet = workbook.Sheets[sheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+        
+        resolve({ workbook, sheetNames, data: jsonData });
       } catch (err) {
         reject(err);
       }
@@ -21,6 +33,46 @@ export const readExcelFile = async (file: File): Promise<any[]> => {
     reader.onerror = (err) => reject(err);
     reader.readAsBinaryString(file);
   });
+};
+
+// Parse a specific sheet with a specific header row index (0-based)
+export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string, headerRowIndex: number): any[] => {
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) return [];
+
+  // range: headerRowIndex tells XLSX to start reading from that row.
+  // The row at headerRowIndex becomes the keys.
+  return XLSX.utils.sheet_to_json(worksheet, { 
+    defval: "",
+    range: headerRowIndex 
+  });
+};
+
+// Helper to detect where the header likely is (Row 1 or Row 2)
+// Returns 0 (Row 1) or 1 (Row 2) based on finding keywords
+export const detectHeaderRow = (workbook: XLSX.WorkBook, sheetName: string): number => {
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) return 0;
+
+  // Read first 5 rows as arrays of arrays to inspect content
+  const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 0, defval: '' }) as string[][];
+
+  if (rawRows.length === 0) return 0;
+
+  const keywords = ['VENDEDOR', 'NOME', 'CPF', 'CLIENTE'];
+  
+  // Check row 0
+  const row0Str = (rawRows[0] || []).join(' ').toUpperCase();
+  const score0 = keywords.filter(k => row0Str.includes(k)).length;
+
+  // Check row 1
+  const row1Str = (rawRows[1] || []).join(' ').toUpperCase();
+  const score1 = keywords.filter(k => row1Str.includes(k)).length;
+
+  // If row 1 has more keywords than row 0, assume row 1 is header
+  if (score1 > score0) return 1;
+
+  return 0;
 };
 
 const formatCurrency = (val: number) => {

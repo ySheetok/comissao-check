@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileSpreadsheet, X, Layers } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Layers, Settings, Table } from 'lucide-react';
 import { UploadedFile, PromoterType } from '../types';
-import { readExcelFile } from '../services/excelService';
+import { getWorkbookAndData, detectHeaderRow, parseSheetData } from '../services/excelService';
 import { detectPromoterType } from '../utils/normalization';
 
 interface UploadStepProps {
@@ -18,16 +18,32 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFilesUploaded, masterF
 
     for (const file of acceptedFiles) {
       try {
-        const jsonData = await readExcelFile(file);
-        const headers = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
+        const { workbook, sheetNames, data: initialData } = await getWorkbookAndData(file);
+        
+        let headerIndex = 0;
+        let finalData = initialData;
+        
+        // For Master files, try to auto-detect the best header row
+        if (isMaster && sheetNames.length > 0) {
+           headerIndex = detectHeaderRow(workbook, sheetNames[0]);
+           if (headerIndex > 0) {
+             finalData = parseSheetData(workbook, sheetNames[0], headerIndex);
+           }
+        }
+
+        const headers = finalData.length > 0 ? Object.keys(finalData[0]) : [];
         const detectedType = isMaster ? undefined : detectPromoterType(headers);
         
         processedFiles.push({
           id: Math.random().toString(36).substr(2, 9),
           name: file.name,
           type: isMaster ? 'MASTER' : 'PROMOTER',
-          data: jsonData,
-          promoterType: detectedType
+          data: finalData,
+          promoterType: detectedType,
+          workbook: isMaster ? workbook : undefined, // Store workbook only for master to allow switching
+          sheetNames: isMaster ? sheetNames : undefined,
+          selectedSheet: isMaster && sheetNames.length > 0 ? sheetNames[0] : undefined,
+          headerRowIndex: headerIndex
         });
       } catch (error) {
         console.error("Error reading file", file.name, error);
@@ -65,6 +81,28 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFilesUploaded, masterF
     onFilesUploaded(masterFiles, updated);
   };
 
+  const updateMasterConfig = (id: string, key: 'selectedSheet' | 'headerRowIndex', value: string | number) => {
+    const updated = masterFiles.map(f => {
+      if (f.id !== id) return f;
+      if (!f.workbook) return f; // Cannot re-parse without workbook
+
+      const newSheet = key === 'selectedSheet' ? String(value) : (f.selectedSheet || '');
+      const newHeaderRow = key === 'headerRowIndex' ? Number(value) : (f.headerRowIndex || 0);
+
+      // Re-parse data based on new config
+      const newData = parseSheetData(f.workbook, newSheet, newHeaderRow);
+
+      return {
+        ...f,
+        selectedSheet: newSheet,
+        headerRowIndex: newHeaderRow,
+        data: newData
+      };
+    });
+    
+    onFilesUploaded(updated, promoterFiles);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -90,21 +128,62 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFilesUploaded, masterF
             </div>
           </div>
 
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
             {masterFiles.map(file => (
-              <div key={file.id} className="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 text-green-600 rounded-lg shrink-0">
-                    <FileSpreadsheet className="w-5 h-5" />
+              <div key={file.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 text-green-600 rounded-lg shrink-0">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 text-sm truncate">{file.name}</p>
+                      <p className="text-xs text-slate-500">{file.data.length} linhas</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-800 text-sm truncate">{file.name}</p>
-                    <p className="text-xs text-slate-500">{file.data.length} linhas</p>
-                  </div>
+                  <button onClick={() => removeFile(file.id, true)} className="text-slate-400 hover:text-red-500 transition-colors shrink-0 ml-2">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button onClick={() => removeFile(file.id, true)} className="text-slate-400 hover:text-red-500 transition-colors shrink-0 ml-2">
-                  <X className="w-4 h-4" />
-                </button>
+                
+                {/* Master Config Options */}
+                {file.workbook && (
+                  <div className="bg-slate-50 p-2 rounded-md grid grid-cols-2 gap-2 text-xs">
+                    
+                    {/* Sheet Selector */}
+                    <div className="flex flex-col gap-1">
+                      <label className="flex items-center gap-1 text-slate-500 font-medium">
+                        <Table className="w-3 h-3" /> Planilha (Aba)
+                      </label>
+                      <select 
+                        value={file.selectedSheet}
+                        onChange={(e) => updateMasterConfig(file.id, 'selectedSheet', e.target.value)}
+                        className="bg-white border border-slate-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none w-full"
+                      >
+                        {file.sheetNames?.map(sheet => (
+                          <option key={sheet} value={sheet}>{sheet}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Header Row Selector */}
+                    <div className="flex flex-col gap-1">
+                      <label className="flex items-center gap-1 text-slate-500 font-medium">
+                        <Settings className="w-3 h-3" /> Cabeçalho
+                      </label>
+                      <select 
+                        value={file.headerRowIndex}
+                        onChange={(e) => updateMasterConfig(file.id, 'headerRowIndex', parseInt(e.target.value))}
+                        className="bg-white border border-slate-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none w-full"
+                      >
+                        <option value={0}>Linha 1 (Padrão)</option>
+                        <option value={1}>Linha 2</option>
+                        <option value={2}>Linha 3</option>
+                        <option value={3}>Linha 4</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {masterFiles.length === 0 && (
@@ -135,7 +214,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFilesUploaded, masterF
             </div>
           </div>
 
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
             {promoterFiles.map(file => (
               <div key={file.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
