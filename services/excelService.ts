@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import ptBR from 'date-fns/locale/pt-BR';
 import { MatchResult, ProcessedRow, PromoterType } from '../types';
 
 export const readExcelFile = async (file: File): Promise<any[]> => {
@@ -24,7 +24,7 @@ export const readExcelFile = async (file: File): Promise<any[]> => {
 };
 
 const formatCurrency = (val: number) => {
-  return val; // We let Excel handle formatting via cell styles if we were using a pro library, but here we output raw numbers for calculation safety or string formatted
+  return val; 
 };
 
 export const exportToExcel = (results: MatchResult[]) => {
@@ -70,7 +70,6 @@ export const exportToExcel = (results: MatchResult[]) => {
   const wsFound = XLSX.utils.json_to_sheet(foundData);
   const wsPendencias = XLSX.utils.json_to_sheet(pendenciasData);
 
-  // Set column widths roughly
   wsFound['!cols'] = [
     { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, 
     { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 20 }, { wch: 20 }, 

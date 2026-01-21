@@ -8,7 +8,7 @@ import { Layers, ChevronRight, Settings } from 'lucide-react';
 
 export const AuditModule = () => {
   const [step, setStep] = useState<'UPLOAD' | 'PREVIEW'>('UPLOAD');
-  const [masterFile, setMasterFile] = useState<UploadedFile | null>(null);
+  const [masterFiles, setMasterFiles] = useState<UploadedFile[]>([]);
   const [promoterFiles, setPromoterFiles] = useState<UploadedFile[]>([]);
   const [results, setResults] = useState<MatchResult[]>([]);
   const [stats, setStats] = useState<ProcessingStats>({ totalRows: 0, matchedCpf: 0, matchedNameExact: 0, matchedNameFuzzy: 0, unmatched: 0 });
@@ -16,16 +16,16 @@ export const AuditModule = () => {
   const [fuzzyThreshold, setFuzzyThreshold] = useState(0.85);
   const [showSettings, setShowSettings] = useState(false);
 
-  const handleFilesUploaded = (master: UploadedFile | null, promoters: UploadedFile[]) => {
-    setMasterFile(master);
+  const handleFilesUploaded = (masters: UploadedFile[], promoters: UploadedFile[]) => {
+    setMasterFiles(masters);
     setPromoterFiles(promoters);
   };
 
   const handleRunComparison = () => {
-    if (!masterFile || promoterFiles.length === 0) return;
+    if (masterFiles.length === 0 || promoterFiles.length === 0) return;
 
-    // 1. Prepare Master Rows
-    const masterRows = masterFile.data as MasterRow[];
+    // 1. Prepare Master Rows (Aggregate from all master files)
+    const masterRows = masterFiles.flatMap(file => file.data as MasterRow[]);
 
     // 2. Process all Promoter Files
     const allProcessedRows = promoterFiles.flatMap(file => processFile(file));
@@ -102,7 +102,7 @@ export const AuditModule = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
             <UploadStep 
               onFilesUploaded={handleFilesUploaded} 
-              masterFile={masterFile} 
+              masterFiles={masterFiles} 
               promoterFiles={promoterFiles} 
             />
           </div>
@@ -110,9 +110,9 @@ export const AuditModule = () => {
           <div className="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-4 bg-slate-50/90 backdrop-blur border-t border-slate-200 mt-auto flex justify-end z-20">
             <button
               onClick={handleRunComparison}
-              disabled={!masterFile || promoterFiles.length === 0}
+              disabled={masterFiles.length === 0 || promoterFiles.length === 0}
               className={`flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-white shadow-md transition-all
-                ${!masterFile || promoterFiles.length === 0 
+                ${masterFiles.length === 0 || promoterFiles.length === 0 
                   ? 'bg-slate-300 cursor-not-allowed' 
                   : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5'}`}
             >
