@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { MatchResult, ProcessingStats } from '../types';
 import { exportToExcel } from '../services/excelService';
@@ -104,10 +105,8 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
 
       {/* Table Area */}
       <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        {/* Added overflow-x-auto, max-h-[60vh] and overflow-y-auto as requested for better scrolling */}
         <div className="overflow-y-auto overflow-x-auto max-h-[60vh] w-full">
           <table className="w-full text-sm text-left">
-            {/* Added sticky header z-index to ensure it stays on top */}
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0 z-20 shadow-sm">
               <tr>
                 {activeTab === 'FOUND' ? (
@@ -119,6 +118,9 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
                     <th className="px-4 py-3 font-semibold min-w-[100px]">Match</th>
                     <th className="px-4 py-3 font-semibold min-w-[100px]">Comissão</th>
                     <th className="px-4 py-3 font-semibold min-w-[120px]">Status</th>
+                    <th className="px-4 py-3 font-semibold min-w-[100px]">Emissão</th>
+                    <th className="px-4 py-3 font-semibold min-w-[150px]">Arq. Promotora</th>
+                    <th className="px-4 py-3 font-semibold min-w-[150px]">Arq. Mestre</th>
                   </>
                 ) : (
                   <>
@@ -128,6 +130,8 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
                     <th className="px-4 py-3 font-semibold min-w-[120px]">Banco</th>
                     <th className="px-4 py-3 font-semibold min-w-[150px]">Produto</th>
                     <th className="px-4 py-3 font-semibold min-w-[120px]">Usuário</th>
+                    <th className="px-4 py-3 font-semibold min-w-[100px]">Emissão</th>
+                    <th className="px-4 py-3 font-semibold min-w-[150px]">Arq. Promotora</th>
                   </>
                 )}
               </tr>
@@ -135,7 +139,7 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
             <tbody className="divide-y divide-slate-100">
               {filteredResults.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={activeTab === 'FOUND' ? 10 : 9} className="px-4 py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <SearchX className="w-8 h-8 opacity-50" />
                       <p>Nenhum resultado encontrado.</p>
@@ -175,6 +179,13 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
                             </span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-slate-600 text-xs">{res.row.dataEmissao}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[150px]" title={res.row.fileName}>
+                          {res.row.fileName}
+                        </td>
+                        <td className="px-4 py-3 text-blue-600 text-xs truncate max-w-[150px] font-medium" title={res.masterData?.fileName}>
+                          {res.masterData?.fileName}
+                        </td>
                       </>
                     ) : (
                       <>
@@ -184,6 +195,10 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ results, stats, onBack
                         <td className="px-4 py-3 text-slate-600">{res.row.banco}</td>
                         <td className="px-4 py-3 text-slate-600">{res.row.produto}</td>
                         <td className="px-4 py-3 text-slate-500 italic">{res.row.usuario}</td>
+                        <td className="px-4 py-3 text-slate-600 text-xs">{res.row.dataEmissao}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[150px]" title={res.row.fileName}>
+                          {res.row.fileName}
+                        </td>
                       </>
                     )}
                   </tr>

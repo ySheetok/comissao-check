@@ -10,6 +10,7 @@ export interface MasterRow {
   VENDEDOR: string;
   NOME: string;
   CPF: string;
+  fileName?: string; // Source filename for master data
 }
 
 export interface ProcessedRow {
@@ -29,6 +30,7 @@ export interface ProcessedRow {
   orgao: string;
   valor: number;
   data: Date;
+  dataEmissao: string; // Contract emission date
   percentual: number;
   produto: string;
   comissao: number;

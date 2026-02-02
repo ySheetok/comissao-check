@@ -1,5 +1,6 @@
+
 import { ProcessedRow, PromoterType, UploadedFile } from '../types';
-import { normalizeCPF, normalizeName, parseCurrency, parsePercentage } from '../utils/normalization';
+import { normalizeCPF, normalizeName, parseCurrency, parsePercentage, formatExcelDate } from '../utils/normalization';
 
 // Helper to safely get nested or case-insensitive property
 const getProp = (obj: any, key: string) => {
@@ -12,10 +13,6 @@ const getProp = (obj: any, key: string) => {
 };
 
 // Helper to sum duplicate columns (like in Port file: "Comissão %")
-// sheet_to_json handles duplicate keys by appending _1, _2 usually if mapping options set, 
-// BUT standard sheet_to_json default overwrites or needs raw parsing. 
-// However, the input requirement says "be mindful duplicates".
-// XLSX.read standard often deduplicates by suffixing. e.g. "Comissão %", "Comissão %_1".
 const getSumOfColumns = (row: any, baseName: string, parser: (v: any) => number): number => {
   let sum = 0;
   // Check base
@@ -60,6 +57,7 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
   let produto = '';
   let comissao = 0;
   let usuario = '';
+  let dataEmissao = '';
 
   const checkINSS = (...values: string[]) => {
     return values.some(v => v && String(v).toLowerCase().includes('inss')) ? 'INSS' : '-';
@@ -75,16 +73,13 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
       orgao = checkINSS(convenioPort);
       
       valor = parseCurrency(getProp(row, 'Valor Líquido'));
-      
-      // Port: sum of two "Comissão %" columns. 
-      // Assumption: The parser handles duplicate headers by appending _1 or we scan keys.
-      // Since we don't control the parser internals deeply here, we try standard variations.
-      // FIX: Use parsePortPercentage to handle fractional values (0,025 -> 2,5)
       percentual = getSumOfColumns(row, 'Comissão %', parsePortPercentage);
-      
       produto = getProp(row, 'Produto') || '';
       comissao = parseCurrency(getProp(row, 'Vlr. Pagto.'));
       usuario = getProp(row, 'Digitador') || '';
+      
+      // Port: 'Emissão'
+      dataEmissao = formatExcelDate(getProp(row, 'Emissão') || getProp(row, 'Emissao'));
       break;
 
     case PromoterType.CREDFORYOU:
@@ -96,17 +91,17 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
       orgao = checkINSS(descrConvenio);
       
       valor = parseCurrency(getProp(row, 'VLR_LIQUIDO'));
-      
-      // Use %_PGTO (primary). If duplicate, use primary.
       percentual = parsePercentage(getProp(row, '%_PGTO'));
-      
-      produto = descrConvenio; // As per spec
+      produto = descrConvenio; 
       
       const vlrPgto1 = parseCurrency(getProp(row, 'VLR_PGTO'));
       const vlrPgto2 = parseCurrency(getProp(row, 'VLR_PGTO2'));
       comissao = vlrPgto1 + vlrPgto2;
       
       usuario = getProp(row, 'ATENDENTE') || getProp(row, 'COD_USUARIO') || '';
+      
+      // CredForYou: 'DT_EMISSAO'
+      dataEmissao = formatExcelDate(getProp(row, 'DT_EMISSAO'));
       break;
 
     case PromoterType.CIA_DO_CREDITO:
@@ -122,6 +117,9 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
       comissao = parseCurrency(getProp(row, 'VAL. COMISSÃO'));
       
       usuario = getProp(row, 'DIGITADOR') || '';
+      
+      // Cia do Credito: 'CRC'
+      dataEmissao = formatExcelDate(getProp(row, 'CRC'));
       break;
 
     default:
@@ -135,6 +133,7 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
       percentual = parsePercentage(getProp(row, '%') || getProp(row, 'PERCENTUAL'));
       comissao = parseCurrency(getProp(row, 'COMISSAO') || getProp(row, 'VALOR COMISSAO'));
       usuario = getProp(row, 'USUARIO') || getProp(row, 'DIGITADOR') || '';
+      dataEmissao = formatExcelDate(getProp(row, 'DATA EMISSAO') || getProp(row, 'EMISSAO') || getProp(row, 'DATA'));
       break;
   }
 
@@ -150,6 +149,7 @@ export const processPromoterRow = (row: any, type: PromoterType, fileName: strin
     orgao: orgao,
     valor: valor,
     data: new Date(),
+    dataEmissao: dataEmissao,
     percentual: percentual,
     produto: produto,
     comissao: comissao,

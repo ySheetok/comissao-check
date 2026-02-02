@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { UploadStep } from './UploadStep';
 import { PreviewStep } from './PreviewStep';
@@ -24,8 +25,10 @@ export const AuditModule = () => {
   const handleRunComparison = () => {
     if (masterFiles.length === 0 || promoterFiles.length === 0) return;
 
-    // 1. Prepare Master Rows (Aggregate from all master files)
-    const masterRows = masterFiles.flatMap(file => file.data as MasterRow[]);
+    // 1. Prepare Master Rows (Aggregate from all master files and inject filename)
+    const masterRows = masterFiles.flatMap(file => 
+      file.data.map(row => ({ ...row, fileName: file.name } as MasterRow))
+    );
 
     // 2. Process all Promoter Files
     const allProcessedRows = promoterFiles.flatMap(file => processFile(file));

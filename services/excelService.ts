@@ -1,3 +1,4 @@
+
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
@@ -102,7 +103,10 @@ export const exportToExcel = (results: MatchResult[]) => {
         'VENDEDOR': res.masterData?.VENDEDOR || '',
         'FILIAL': '',
         'COMISSÃO': res.row.comissao,
-        'STATUS': res.status
+        'STATUS': res.status,
+        'EMISSÃO': res.row.dataEmissao,
+        'ARQUIVO (PROMOTORA)': res.row.fileName,
+        'ARQUIVO (MESTRE)': res.masterData?.fileName || ''
       });
     } else {
       pendenciasData.push({
@@ -112,7 +116,9 @@ export const exportToExcel = (results: MatchResult[]) => {
         'BANCO': res.row.banco,
         'PRODUTO': res.row.produto,
         'USUARIO': res.row.usuario,
-        'DATA RELATORIO': dataRelatorioFormatted
+        'DATA RELATORIO': dataRelatorioFormatted,
+        'EMISSÃO': res.row.dataEmissao,
+        'ARQUIVO (PROMOTORA)': res.row.fileName
       });
     }
   });
@@ -122,14 +128,28 @@ export const exportToExcel = (results: MatchResult[]) => {
   const wsFound = XLSX.utils.json_to_sheet(foundData);
   const wsPendencias = XLSX.utils.json_to_sheet(pendenciasData);
 
+  // Updated cols width including Emissão and Arquivos
   wsFound['!cols'] = [
-    { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, 
-    { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 20 }, { wch: 20 }, 
-    { wch: 10 }, { wch: 12 }, { wch: 15 }
+    { wch: 15 }, // Promotora
+    { wch: 30 }, // Cliente
+    { wch: 15 }, // CPF
+    { wch: 15 }, // Banco
+    { wch: 10 }, // Orgao
+    { wch: 12 }, // Valor
+    { wch: 10 }, // Data
+    { wch: 8 },  // %
+    { wch: 20 }, // Produto
+    { wch: 20 }, // Vendedor
+    { wch: 10 }, // Filial
+    { wch: 12 }, // Comissao
+    { wch: 15 }, // Status
+    { wch: 12 }, // Emissao
+    { wch: 25 }, // Arq Promotora
+    { wch: 25 }  // Arq Mestre
   ];
 
   wsPendencias['!cols'] = [
-    { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }
+    { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 25 }
   ];
 
   XLSX.utils.book_append_sheet(wb, wsFound, "Found");

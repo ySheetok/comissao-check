@@ -1,4 +1,6 @@
+
 import { PromoterType } from '../types';
+import { addDays, format } from 'date-fns';
 
 export const normalizeCPF = (cpf: string | number | undefined): string => {
   if (!cpf) return '';
@@ -59,6 +61,28 @@ export const parsePercentage = (value: string | number | undefined): number => {
 
   let str = String(value).trim().replace('%', '');
   return parseCurrency(str);
+};
+
+export const formatExcelDate = (value: any): string => {
+  if (!value) return '';
+  
+  // If number (Excel serial)
+  if (typeof value === 'number') {
+    // Excel base date: Dec 30, 1899
+    // Adjust for Excel leap year bug (1900 is not leap year but Excel thinks it is), but for modern dates usually fine
+    try {
+      const date = addDays(new Date(1899, 11, 30), value);
+      if (!isNaN(date.getTime())) {
+        return format(date, 'dd/MM/yyyy');
+      }
+    } catch (e) {
+      return String(value);
+    }
+  }
+  
+  // If string, return as is (assuming it's readable) or try to simple parse
+  // Many CSVs have 'DD/MM/YYYY' already.
+  return String(value);
 };
 
 export const detectPromoterType = (headers: string[]): PromoterType => {
